@@ -17,10 +17,15 @@ exports.create = (text, callback) => {
 };
 
 exports.readAll = (callback) => {
-  var data = _.map(items, (text, id) => {
-    return { id, text };
-  });
-  callback(null, data);
+  fs.readdir(exports.dataDir, (err, data) => {
+    var data = data.map((text) => ({id: text.slice(0,5), text: text.slice(0,5)}));
+    callback(null, data);
+  })
+
+  // var data = _.map(items, (text, id) => {
+  //   return { id, text };
+  // });
+  // callback(null, data);
 };
 
 exports.readOne = (id, callback) => {
