@@ -1,40 +1,54 @@
 const fs = require('fs');
+const fsPromises = require('fs/promises');
 const path = require('path');
 const _ = require('underscore');
 const counter = require('./counter');
+const Promise = require('bluebird');
 
 var items = {};
 
 // Public API - Fix these CRUD functions ///////////////////////////////////////
 
-exports.create = (text, callback) => {
+var create = (text, callback) => {
   counter.getNextUniqueId((err, id) => {
     //console.log('dataDir:', + exports.dataDir, ' path:' + '/' + id + '.txt');
+    //console.log('id, text', id, ':', text);
     fs.appendFile(exports.dataDir + '/' + id + '.txt',
     text,
     () => callback(null, { id, text }));
   });
 };
 
-exports.readAll = (callback) => {
-  fs.readdir(exports.dataDir, (err, data) => {
-    var data = data.map((text) => ({id: text.slice(0,5), text: text.slice(0,5)}));
-    callback(null, data);
-  })
+var readAll = (callback) => {
+  fsPromises.readdir(exports.dataDir)
+    .then((filenames) => {
+      Promise.all(filenames.map((filename) => exports.readOne(filename.slice(0, 5))))
+      .then((result) => {
+        console.log('result', result);
+        callback(null, result);
+      })
+      .catch((err) => {
+        console.log('err:' + err);
+        callback(null, '');
+      });
+    })
+    .catch((err) => {
+      callback(null, '');
+    });
 };
 
-exports.readOne = (id, callback) => {
+var readOne = (id, callback) => {
+ // console.log('read:id', id);
   fs.readFile(`${exports.dataDir}/${id}.txt`, (err, content) => {
     if (err) {
       callback(err, '');
-      //throw('error, no data found');
     } else {
-      callback(null, {id: id, text: content.toString()});
+      callback(null, {id: id.slice(0, 5), text: content.toString()});
     }
   });
 };
 
-exports.update = (id, text, callback) => {
+var update = (id, text, callback) => {
   exports.readOne(id, (err, data) => {
     if (err) {
       callback(err, '');
@@ -50,7 +64,7 @@ exports.update = (id, text, callback) => {
   })
 };
 
-exports.delete = (id, callback) => {
+var deleteOne = (id, callback) => {
   exports.readOne(id, (err, data) => {
     if (err) {
       callback(err, '');
@@ -65,6 +79,12 @@ exports.delete = (id, callback) => {
     }
   })
 };
+
+exports.create = Promise.promisify(create);
+exports.readAll = Promise.promisify(readAll);
+exports.readOne = Promise.promisify(readOne);
+exports.update = Promise.promisify(update);
+exports.delete = Promise.promisify(deleteOne);
 
 // Config+Initialization code -- DO NOT MODIFY /////////////////////////////////
 

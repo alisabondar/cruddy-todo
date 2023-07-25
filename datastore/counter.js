@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const sprintf = require('sprintf-js').sprintf;
+const Promise = require('bluebird');
 
 
 // Private helper functions ////////////////////////////////////////////////////
@@ -24,6 +25,8 @@ const readCounter = (callback) => {
   });
 };
 
+var readCount = Promise.promisify(readCounter);
+
 const writeCounter = (count, callback) => {
   var counterString = zeroPaddedNumber(count);
   fs.writeFile(exports.counterFile, counterString, (err) => {
@@ -35,29 +38,52 @@ const writeCounter = (count, callback) => {
   });
 };
 
+var writeCount = Promise.promisify(writeCounter);
+
 // Public API - Fix this function //////////////////////////////////////////////
 
-exports.getNextUniqueId = (callback) => {
-  // if (err) {
-  //  'counter undefined'
-  //} else {}
-  readCounter((err, counter) => {
-    if (err) {
-      callback('error reading counter', null);
-    } else {
-      counter++;
-      writeCounter(counter, (err, result) => {
-        if (err) {
-          callback('error writing counter', null);
-        } else {
-          callback(null, result);
-        }
-      });
-    }
-  });
-  // return zeroPaddedNumber(counter);
-};
+/*
+doSomething()
+  .then(function (result) {
+    return doSomethingElse(result);
+  })
+  .then(function (newResult) {
+    return doThirdThing(newResult);
+  })
+  .then(function (finalResult) {
+    console.log(`Got the final result: ${finalResult}`);
+  })
+  .catch(failureCallback);
+*/
 
+exports.getNextUniqueId = (callback) => {
+  readCount()
+    .then((result) => {
+      result++;
+      return writeCount(result);
+    })
+    .then((result) => {
+      callback(null, result);
+    })
+    .catch((err) => {
+      callback('error writing counter', null);
+    });
+
+  // readCounter((err, counter) => {
+  //   if (err) {
+  //     callback('error reading counter', null);
+  //   } else {
+  //     counter++;
+  //     writeCounter(counter, (err, result) => {
+  //       if (err) {
+  //         callback('error writing counter', null);
+  //       } else {
+  //         callback(null, result);
+  //       }
+  //     });
+  //   }
+  // });
+};
 
 
 // Configuration -- DO NOT MODIFY //////////////////////////////////////////////
