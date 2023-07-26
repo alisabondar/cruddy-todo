@@ -1,54 +1,90 @@
 const fs = require('fs');
+const fsPromises = require('fs/promises');
 const path = require('path');
 const _ = require('underscore');
 const counter = require('./counter');
+const Promise = require('bluebird');
 
 var items = {};
 
 // Public API - Fix these CRUD functions ///////////////////////////////////////
 
-exports.create = (text, callback) => {
-  var id = counter.getNextUniqueId();
-  items[id] = text;
-  callback(null, { id, text });
-};
-
-exports.readAll = (callback) => {
-  var data = _.map(items, (text, id) => {
-    return { id, text };
+var create = (text, callback) => {
+  counter.getNextUniqueId((err, id) => {
+    //console.log('dataDir:', + exports.dataDir, ' path:' + '/' + id + '.txt');
+    //console.log('id, text', id, ':', text);
+    fs.appendFile(exports.dataDir + '/' + id + '.txt',
+    text,
+    () => callback(null, { id, text }));
   });
-  callback(null, data);
 };
 
-exports.readOne = (id, callback) => {
-  var text = items[id];
-  if (!text) {
-    callback(new Error(`No item with id: ${id}`));
-  } else {
-    callback(null, { id, text });
-  }
+var readAll = (callback) => {
+  fsPromises.readdir(exports.dataDir)
+    .then((filenames) => {
+      Promise.all(filenames.map((filename) => exports.readOne(filename.slice(0, 5))))
+      .then((result) => {
+        console.log('result', result);
+        callback(null, result);
+      })
+      .catch((err) => {
+        console.log('err:' + err);
+        callback(null, '');
+      });
+    })
+    .catch((err) => {
+      callback(null, '');
+    });
 };
 
-exports.update = (id, text, callback) => {
-  var item = items[id];
-  if (!item) {
-    callback(new Error(`No item with id: ${id}`));
-  } else {
-    items[id] = text;
-    callback(null, { id, text });
-  }
+var readOne = (id, callback) => {
+ // console.log('read:id', id);
+  fs.readFile(`${exports.dataDir}/${id}.txt`, (err, content) => {
+    if (err) {
+      callback(err, '');
+    } else {
+      callback(null, {id: id.slice(0, 5), text: content.toString()});
+    }
+  });
 };
 
-exports.delete = (id, callback) => {
-  var item = items[id];
-  delete items[id];
-  if (!item) {
-    // report an error if item not found
-    callback(new Error(`No item with id: ${id}`));
-  } else {
-    callback();
-  }
+var update = (id, text, callback) => {
+  exports.readOne(id, (err, data) => {
+    if (err) {
+      callback(err, '');
+    } else {
+      fs.writeFile(`${exports.dataDir}/${id}.txt`, text, (err, content) => {
+        if (err) {
+          callback(err, '');
+        } else {
+          callback(null);
+        }
+      });
+    }
+  })
 };
+
+var deleteOne = (id, callback) => {
+  exports.readOne(id, (err, data) => {
+    if (err) {
+      callback(err, '');
+    } else {
+      fs.unlink(`${exports.dataDir}/${id}.txt`, (err) => {
+        if (err) {
+          callback(err, '');
+        } else {
+          callback(null);
+        }
+      });
+    }
+  })
+};
+
+exports.create = Promise.promisify(create);
+exports.readAll = Promise.promisify(readAll);
+exports.readOne = Promise.promisify(readOne);
+exports.update = Promise.promisify(update);
+exports.delete = Promise.promisify(deleteOne);
 
 // Config+Initialization code -- DO NOT MODIFY /////////////////////////////////
 
